@@ -579,10 +579,8 @@ def batch(request, response, storage, *args, **kwargs):
 
 
 def options(request, response, storage, *args, **kwargs):
+    response["Content-Type"] = "text/html; charset=UTF-8"
+    response["Allow"] = "OPTIONS,GET,POST,PUT,DELETE,PATCH"
+    response["Access-Control-Allow-Origin"] = "*"
+    response["Access-Control-Allow-Methods"] = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     response.write("HTTP/1.1 200 OK\r\n")
-    response.write("Content-Type: text/html; charset=UTF-8\r\n")
-    response.write("Allow: OPTIONS,GET,POST,PUT,DELETE,PATCH\r\n")
-    response.write("Access-Control-Allow-Origin: *\r\n")
-    response.write(
-        "Access-Control-Allow-Methods: GET,POST,PUT,PATCH,DELETE,OPTIONS\r\n"
-    )
