@@ -333,6 +333,7 @@ class Router(object):
 
         request = Request(self._request_handler, method)
         response = Response(self._request_handler)
+        response['Access-Control-Allow-Origin'] = "*"
 
         for regex, handlers in HANDLERS:
             pattern = re.compile(regex)
