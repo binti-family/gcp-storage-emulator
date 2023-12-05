@@ -582,5 +582,5 @@ def options(request, response, storage, *args, **kwargs):
     response["Content-Type"] = "text/html; charset=UTF-8"
     response["Access-Control-Allow-Origin"] = "*"
     response["Access-Control-Allow-Methods"] = "*"
-    response["Access-Control-Request-Headers"] = "*"
+    response["Access-Control-Allow-Headers"] = "*"
     response.write("HTTP/1.1 200 OK\r\n")
