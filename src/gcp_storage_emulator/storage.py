@@ -9,9 +9,11 @@ from fs.errors import FileExpected, ResourceNotFound
 
 from gcp_storage_emulator.exceptions import Conflict, NotFound
 from gcp_storage_emulator.settings import STORAGE_BASE, STORAGE_DIR
+from gcp_storage_emulator.checksums import checksums
 
 # Real buckets can't start with an underscore
 RESUMABLE_DIR = "_resumable"
+MULTIPART_DIR = "_multipart"
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,7 @@ class Storage(object):
             "buckets": self.buckets,
             "objects": self.objects,
             "resumable": self.resumable,
+            "multipart": self.multipart,
         }
 
         with self._fs.open(".meta", mode="w") as meta:
@@ -50,10 +53,12 @@ class Storage(object):
                 self.buckets = data.get("buckets")
                 self.objects = data.get("objects")
                 self.resumable = data.get("resumable")
+                self.multipart = data.get("multipart")
         except ResourceNotFound:
             self.buckets = {}
             self.objects = {}
             self.resumable = {}
+            self.multipart = {}
 
     def _get_or_create_dir(self, bucket_name, file_name):
         try:
@@ -221,6 +226,126 @@ class Storage(object):
         self.resumable[file_id] = file_obj
         self._write_config_to_file()
         return file_id
+
+    def create_xml_multipart_upload(
+        self, bucket_name, file_name, content_type, metadata
+    ):
+        """Initiate the necessary data to support multipart XML upload
+        (which means the file is uploaded in parts and then assembled by the server,
+        not multipart JSON upload, which means it uses a single multipart HTTP request)
+
+        Arguments:
+            bucket_name {string} -- Name of the bucket to save to
+            file_name {string} -- File name used to store data
+
+        Raises:
+            NotFound: Raised when the bucket doesn't exist
+
+        Returns:
+            str -- id of the multipart upload (`upload_id`)
+        """
+
+        if bucket_name not in self.buckets:
+            raise NotFound
+
+        upload_id = "{}:{}:{}".format(bucket_name, file_name, datetime.datetime.now())
+        self.multipart[upload_id] = {
+            "kind": "storage#object",
+            "bucket_name": bucket_name,
+            "id": file_name,
+            "metadata": metadata,
+            "contentType": content_type,
+        }
+        print(self.multipart[upload_id])
+        self._write_config_to_file()
+        return upload_id
+
+    def add_to_multipart_upload(self, upload_id, part_number, content):
+        """Add a part to a multipart upload
+
+         Arguments:
+            upload_id {str} -- multipart upload id
+            part_number {int} -- part number (1-based)
+            content {bytes} -- Content of the file to write
+
+        Raises:
+            NotFound: Raised when the upload doesn't exist
+
+        Returns:
+            None
+        """
+
+        upload = self.multipart.get(upload_id)
+
+        if upload is None:
+            raise NotFound
+
+        part_file_id = f"{self.safe_id(upload_id)}.{part_number:05}"
+
+        file_dir = self._get_or_create_dir(MULTIPART_DIR, part_file_id)
+        with file_dir.open(part_file_id, mode="wb") as file:
+            file.write(content)
+        print("part_file_id", part_file_id)
+        print("part_content", content)
+
+    def complete_multipart_upload(self, upload_id):
+        """Completes a multipart upload and creates the file
+
+         Arguments:
+            upload_id {str} -- multipart upload id
+
+        Raises:
+            NotFound: Raised when the upload doesn't exist
+
+        Returns:
+            None
+        """
+
+        upload = self.multipart.get(upload_id)
+
+        if upload is None:
+            raise NotFound
+
+        safe_id = self.safe_id(upload_id)
+
+        file_name = upload.get("id")
+        bucket_name = upload.get("bucket_name")
+
+        # Read in all the parts' data. We could do this more
+        # memory-efficiently and just copy part-by-part to the final
+        # file, but we need to take the checksums, so we just read
+        # it all in.
+        file_dir = self._get_or_create_dir(bucket_name, file_name)
+        content = b""
+
+        for part_number in range(1, 10001):
+            try:
+                part_file_id = f"{safe_id}.{part_number:05}"
+                part_content = self.get_file(
+                    MULTIPART_DIR, part_file_id, show_error=False
+                )
+                content += part_content
+                print("part_file_id", part_file_id)
+                print("part_content", part_content)
+                self._delete_file(MULTIPART_DIR, part_file_id)
+            except NotFound:
+                break
+
+        base_name = fs.path.basename(file_name)
+        with file_dir.open(base_name, mode="wb") as file:
+            file.write(content)
+            file_obj = checksums(
+                content,
+                upload
+                | {
+                    "size": len(content),
+                    "updated": datetime.datetime.now().isoformat(),
+                },
+            )
+            bucket_objects = self.objects.get(bucket_name, {})
+            bucket_objects[file_name] = file_obj
+            self.objects[bucket_name] = bucket_objects
+            self._write_config_to_file()
 
     def add_to_resumable_upload(self, file_id, content, total_size):
         """Add data to partial resumable download.

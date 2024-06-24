@@ -23,6 +23,10 @@ DELETE = "DELETE"
 PATCH = "PATCH"
 OPTIONS = "OPTIONS"
 
+HOST_PATTERN = "host_pattern"
+PATH_PATTERN = "path_pattern"
+METHOD_MAP = "method_map"
+
 
 def _wipe_data(req, res, storage):
     keep_buckets = bool(req.query.get("keep-buckets"))
@@ -40,72 +44,102 @@ def _health_check(req, res, storage):
 
 
 HANDLERS = (
-    (
-        r"^{}/b$".format(settings.API_ENDPOINT),
-        {GET: buckets.ls, POST: buckets.insert, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)$".format(settings.API_ENDPOINT),
-        {GET: buckets.get, DELETE: buckets.delete, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(settings.API_ENDPOINT),
-        {GET: objects.ls, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/copyTo/b/".format(
+    {
+        PATH_PATTERN: r"^{}/b$".format(settings.API_ENDPOINT),
+        METHOD_MAP: {GET: buckets.ls, POST: buckets.insert, OPTIONS: objects.options},
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)$".format(settings.API_ENDPOINT),
+        METHOD_MAP: {
+            GET: buckets.get,
+            DELETE: buckets.delete,
+            OPTIONS: objects.options,
+        },
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(
+            settings.API_ENDPOINT
+        ),
+        METHOD_MAP: {GET: objects.ls, OPTIONS: objects.options},
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/copyTo/b/".format(
             settings.API_ENDPOINT
         )
         + r"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
-        {POST: objects.copy, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/rewriteTo/b/".format(
+        METHOD_MAP: {POST: objects.copy, OPTIONS: objects.options},
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/rewriteTo/b/".format(
             settings.API_ENDPOINT
         )
         + r"(?P<dest_bucket_name>[-.\w]+)/o/(?P<dest_object_id>.*[^/]+)$",
-        {POST: objects.rewrite},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/compose$".format(
+        METHOD_MAP: {POST: objects.rewrite},
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)/compose$".format(
             settings.API_ENDPOINT
         ),
-        {POST: objects.compose, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$".format(
+        METHOD_MAP: {POST: objects.compose, OPTIONS: objects.options},
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$".format(
             settings.API_ENDPOINT
         ),
-        {
+        METHOD_MAP: {
             GET: objects.get,
             DELETE: objects.delete,
             PATCH: objects.patch,
             OPTIONS: objects.options,
         },
-    ),
+    },
     # Non-default API endpoints
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(settings.UPLOAD_API_ENDPOINT),
-        {POST: objects.insert, PUT: objects.upload_partial, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$".format(
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o$".format(
+            settings.UPLOAD_API_ENDPOINT
+        ),
+        METHOD_MAP: {
+            POST: objects.insert,
+            PUT: objects.upload_partial,
+            OPTIONS: objects.options,
+        },
+    },
+    {
+        PATH_PATTERN: r"^{}/b/(?P<bucket_name>[-.\w]+)/o/(?P<object_id>.*[^/]+)$".format(
             settings.DOWNLOAD_API_ENDPOINT
         ),
-        {GET: objects.download, OPTIONS: objects.options},
-    ),
-    (
-        r"^{}$".format(settings.BATCH_API_ENDPOINT),
-        {POST: objects.batch, OPTIONS: objects.options},
-    ),
+        METHOD_MAP: {GET: objects.download, OPTIONS: objects.options},
+    },
+    {
+        PATH_PATTERN: r"^{}$".format(settings.BATCH_API_ENDPOINT),
+        METHOD_MAP: {POST: objects.batch, OPTIONS: objects.options},
+    },
     # Internal API, not supported by the real GCS
-    (r"^/$", {GET: _health_check, OPTIONS: objects.options}),  # Health check endpoint
-    (r"^/wipe$", {GET: _wipe_data, OPTIONS: objects.options}),  # Wipe all data
+    {
+        PATH_PATTERN: r"^/$",
+        METHOD_MAP: {GET: _health_check, OPTIONS: objects.options},
+    },  # Health check endpoint
+    {
+        PATH_PATTERN: r"^/wipe$",
+        METHOD_MAP: {GET: _wipe_data, OPTIONS: objects.options},
+    },  # Wipe all data
     # Public file serving, same as object.download and signed URLs
-    (
-        r"^/(?P<bucket_name>[-.\w]+)/(?P<object_id>.*[^/]+)$",
-        {GET: objects.download, PUT: objects.xml_upload, OPTIONS: objects.options},
-    ),
+    {
+        PATH_PATTERN: r"^/(?P<bucket_name>[.\w]+)/(?P<object_id>.*[^/]+)$",
+        METHOD_MAP: {
+            GET: objects.download,
+            PUT: objects.xml_upload,
+            OPTIONS: objects.options,
+        },
+    },
+    {
+        HOST_PATTERN: r"^(?P<bucket_name>[^.]+)\.",
+        PATH_PATTERN: r"^/(?P<object_id>.*[^/]+)$",
+        METHOD_MAP: {
+            POST: objects.xml_multipart_upload,
+            PUT: objects.xml_part_upload,
+        },
+    },
 )
 
 BATCH_HANDLERS = (
@@ -220,6 +254,8 @@ def _read_data(request_handler, query):
 class Request(object):
     def __init__(self, request_handler, method):
         super().__init__()
+        self._host = request_handler.headers.get("host")
+        self._headers = request_handler.headers
         self._path = request_handler.path
         self._request_handler = request_handler
         self._server_address = request_handler.server.server_address
@@ -228,10 +264,18 @@ class Request(object):
         )
         self._full_url = self._base_url + self._path
         self._parsed_url = urlparse(self._full_url)
-        self._query = parse_qs(self._parsed_url.query)
+        self._query = parse_qs(self._parsed_url.query, keep_blank_values=True)
         self._methtod = method
         self._data = None
         self._parsed_params = None
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def headers(self):
+        return self._headers
 
     @property
     def path(self):
@@ -301,6 +345,10 @@ class Response(object):
         self["Content-type"] = "application/json"
         self._content = json.dumps(obj)
 
+    def xml(self, content):
+        self["Content-type"] = "application/xml"
+        self._content = content
+
     def __setitem__(self, key, value):
         self._headers[key] = value
 
@@ -333,9 +381,16 @@ class Router(object):
 
         request = Request(self._request_handler, method)
         response = Response(self._request_handler)
-        response['Access-Control-Allow-Origin'] = "*"
+        response["Access-Control-Allow-Origin"] = "*"
 
-        for regex, handlers in HANDLERS:
+        for handler in HANDLERS:
+            host_pattern = handler.get(HOST_PATTERN)
+            regex = handler.get(PATH_PATTERN)
+            handlers = handler.get(METHOD_MAP)
+
+            if host_pattern and not re.match(host_pattern, request.host):
+                continue
+
             pattern = re.compile(regex)
             match = pattern.fullmatch(request.path)
             if match:
