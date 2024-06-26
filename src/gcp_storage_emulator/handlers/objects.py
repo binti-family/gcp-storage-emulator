@@ -246,11 +246,14 @@ def _xml_initiate_upload(request, response, storage, *args, **kwargs):
         if match:
             metadata_key = match.group("metadata_key")
             metadata[metadata_key] = value
-    print(metadata)
+
+    file_obj = _make_object_resource(
+        request.base_url, bucket_name, object_id, content_type, 0
+    ) | {"metadata": metadata}
 
     try:
         upload_id = storage.create_xml_multipart_upload(
-            bucket_name, object_id, content_type, metadata
+            bucket_name, object_id, file_obj
         )
 
         xml = """

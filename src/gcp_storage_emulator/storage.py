@@ -227,9 +227,7 @@ class Storage(object):
         self._write_config_to_file()
         return file_id
 
-    def create_xml_multipart_upload(
-        self, bucket_name, file_name, content_type, metadata
-    ):
+    def create_xml_multipart_upload(self, bucket_name, file_name, file_obj):
         """Initiate the necessary data to support multipart XML upload
         (which means the file is uploaded in parts and then assembled by the server,
         not multipart JSON upload, which means it uses a single multipart HTTP request)
@@ -237,6 +235,7 @@ class Storage(object):
         Arguments:
             bucket_name {string} -- Name of the bucket to save to
             file_name {string} -- File name used to store data
+            file_obj {dict} -- GCS Object resource
 
         Raises:
             NotFound: Raised when the bucket doesn't exist
@@ -249,13 +248,7 @@ class Storage(object):
             raise NotFound
 
         upload_id = "{}:{}:{}".format(bucket_name, file_name, datetime.datetime.now())
-        self.multipart[upload_id] = {
-            "kind": "storage#object",
-            "bucket_name": bucket_name,
-            "id": file_name,
-            "metadata": metadata,
-            "contentType": content_type,
-        }
+        self.multipart[upload_id] = file_obj
         self._write_config_to_file()
         return upload_id
 
@@ -305,8 +298,8 @@ class Storage(object):
 
         safe_id = self.safe_id(upload_id)
 
-        file_name = upload.get("id")
-        bucket_name = upload.get("bucket_name")
+        file_name = upload.get("name")
+        bucket_name = upload.get("bucket")
 
         # Read in all the parts' data. We could do this more
         # memory-efficiently and just copy part-by-part to the final
