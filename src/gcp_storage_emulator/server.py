@@ -125,7 +125,7 @@ HANDLERS = (
     },  # Wipe all data
     # Public file serving, same as object.download and signed URLs
     {
-        PATH_PATTERN: r"^/(?P<bucket_name>[.\w]+)/(?P<object_id>.*[^/]+)$",
+        PATH_PATTERN: r"^/(?P<bucket_name>[-.\w]+)/(?P<object_id>.*[^/]+)$",
         METHOD_MAP: {
             GET: objects.download,
             PUT: objects.xml_upload,
@@ -410,7 +410,9 @@ class Router(object):
                 break
         else:
             logger.error(
-                "Method not implemented: {} - {}".format(request.method, request.path)
+                "Method not implemented: {} {} - {}".format(
+                    request.method, request.host, request.path
+                )
             )
             response.status = HTTPStatus.NOT_IMPLEMENTED
 
