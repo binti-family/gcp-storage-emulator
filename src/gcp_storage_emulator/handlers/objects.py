@@ -287,7 +287,6 @@ def _xml_complete_upload(request, response, storage, *args, **kwargs):
 
 ## https://cloud.google.com/storage/docs/xml-api/post-object-multipart
 def xml_multipart_upload(request, response, storage, *args, **kwargs):
-    print("query:", request.query.get("uploads"))
     if request.query.get("uploads") is not None:
         return _xml_initiate_upload(request, response, storage, *args, **kwargs)
 
@@ -306,7 +305,6 @@ def xml_part_upload(request, response, storage, *args, **kwargs):
 
     upload_id = request.query.get("uploadId")[0]
     part_number = int(request.query.get("partNumber")[0], 10)
-    print("upload_id", upload_id, "part_number", part_number)
     try:
         storage.add_to_multipart_upload(upload_id, part_number, request.data)
         # We don't actually do anything with the tag, but return it for compatibility

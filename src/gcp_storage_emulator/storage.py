@@ -256,7 +256,6 @@ class Storage(object):
             "metadata": metadata,
             "contentType": content_type,
         }
-        print(self.multipart[upload_id])
         self._write_config_to_file()
         return upload_id
 
@@ -285,8 +284,6 @@ class Storage(object):
         file_dir = self._get_or_create_dir(MULTIPART_DIR, part_file_id)
         with file_dir.open(part_file_id, mode="wb") as file:
             file.write(content)
-        print("part_file_id", part_file_id)
-        print("part_content", content)
 
     def complete_multipart_upload(self, upload_id):
         """Completes a multipart upload and creates the file
@@ -325,8 +322,6 @@ class Storage(object):
                     MULTIPART_DIR, part_file_id, show_error=False
                 )
                 content += part_content
-                print("part_file_id", part_file_id)
-                print("part_content", part_content)
                 self._delete_file(MULTIPART_DIR, part_file_id)
             except NotFound:
                 break
