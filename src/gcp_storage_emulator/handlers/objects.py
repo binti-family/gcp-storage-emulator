@@ -237,8 +237,17 @@ def _xml_initiate_upload(request, response, storage, *args, **kwargs):
     bucket_name = _extract_host_bucket(request.host)
     object_id = request.path.lstrip("/")
     content_type = request.headers.get("content-type")
-    # TODO extract metadata from the request headers
+
+    # Collect custom metadata
+    # https://cloud.google.com/storage/docs/metadata#custom-metadata
     metadata = {}
+    for key, value in request.headers.items():
+        match = re.match(r"x-goog-meta-(?P<metadata_key>.+)", key.lower())
+        if match:
+            metadata_key = match.group("metadata_key")
+            metadata[metadata_key] = value
+    print(metadata)
+
     try:
         upload_id = storage.create_xml_multipart_upload(
             bucket_name, object_id, content_type, metadata
