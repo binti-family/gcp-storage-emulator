@@ -26,6 +26,7 @@ OPTIONS = "OPTIONS"
 HOST_PATTERN = "host_pattern"
 PATH_PATTERN = "path_pattern"
 METHOD_MAP = "method_map"
+QUERY_KEYS = "query_keys"
 
 
 def _wipe_data(req, res, storage):
@@ -123,6 +124,15 @@ HANDLERS = (
         PATH_PATTERN: r"^/wipe$",
         METHOD_MAP: {GET: _wipe_data, OPTIONS: objects.options},
     },  # Wipe all data
+    {
+        HOST_PATTERN: r"^(?P<bucket_name>[^.]+)\.",
+        PATH_PATTERN: r"^/(?P<object_id>.*[^/]+)$",
+        QUERY_KEYS: ["uploads", "uploadId"],
+        METHOD_MAP: {
+            POST: objects.xml_multipart_upload,
+            PUT: objects.xml_part_upload,
+        },
+    },
     # Public file serving, same as object.download and signed URLs
     {
         PATH_PATTERN: r"^/(?P<bucket_name>[-.\w]+)/(?P<object_id>.*[^/]+)$",
@@ -130,14 +140,6 @@ HANDLERS = (
             GET: objects.download,
             PUT: objects.xml_upload,
             OPTIONS: objects.options,
-        },
-    },
-    {
-        HOST_PATTERN: r"^(?P<bucket_name>[^.]+)\.",
-        PATH_PATTERN: r"^/(?P<object_id>.*[^/]+)$",
-        METHOD_MAP: {
-            POST: objects.xml_multipart_upload,
-            PUT: objects.xml_part_upload,
         },
     },
 )
@@ -387,8 +389,12 @@ class Router(object):
             host_pattern = handler.get(HOST_PATTERN)
             regex = handler.get(PATH_PATTERN)
             handlers = handler.get(METHOD_MAP)
+            query_keys = handler.get(QUERY_KEYS)
 
             if host_pattern and not re.match(host_pattern, request.host):
+                continue
+
+            if query_keys and all(key not in request.query for key in query_keys):
                 continue
 
             pattern = re.compile(regex)
