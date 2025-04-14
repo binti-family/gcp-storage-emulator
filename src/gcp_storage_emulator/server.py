@@ -469,7 +469,7 @@ class APIThread(threading.Thread):
         self._storage = storage
 
     def run(self):
-        self._httpd = server.HTTPServer(
+        self._httpd = server.ThreadingHTTPServer(
             (self._host, self._port), partial(RequestHandler, self._storage)
         )
         self.is_running.set()
