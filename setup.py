@@ -59,6 +59,7 @@ setup(
     install_requires=[
         "fs",
         "google-crc32c",
+        "wrapt",
     ],
     python_requires=">=3.7",
 )

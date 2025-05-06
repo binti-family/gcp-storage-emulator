@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from hashlib import sha256
+from wrapt import synchronized
 
 import fs
 from fs.errors import FileExpected, ResourceNotFound
@@ -35,6 +36,7 @@ class Storage(object):
 
         self._read_config_from_file()
 
+    @synchronized
     def _write_config_to_file(self):
         data = {
             "buckets": self.buckets,
@@ -46,6 +48,7 @@ class Storage(object):
         with self._fs.open(".meta", mode="w") as meta:
             json.dump(data, meta, indent=2)
 
+    @synchronized
     def _read_config_from_file(self):
         try:
             with self._fs.open(".meta", mode="r") as meta:
@@ -60,6 +63,7 @@ class Storage(object):
             self.resumable = {}
             self.multipart = {}
 
+    @synchronized
     def _get_or_create_dir(self, bucket_name, file_name):
         try:
             bucket_dir = self._fs.makedir(bucket_name)
@@ -69,6 +73,7 @@ class Storage(object):
         dir_name = fs.path.dirname(file_name)
         return bucket_dir.makedirs(dir_name, recreate=True)
 
+    @synchronized
     def get_storage_base(self):
         """Returns the pyfilesystem-compatible fs path to the storage
 
@@ -85,6 +90,7 @@ class Storage(object):
             os.makedirs(self._data_dir, exist_ok=True)
             return self._data_dir
 
+    @synchronized
     def get_bucket(self, bucket_name):
         """Get the bucket resourec object given the bucket name
 
@@ -97,6 +103,7 @@ class Storage(object):
 
         return self.buckets.get(bucket_name)
 
+    @synchronized
     def get_file_list(self, bucket_name, prefix=None, delimiter=None):
         """Lists all the blobs in the bucket that begin with the prefix.
 
@@ -152,6 +159,7 @@ class Storage(object):
             )
         return objs, prefixes
 
+    @synchronized
     def create_bucket(self, bucket_name, bucket_obj):
         """Create a bucket object representation and save it to the current fs
 
@@ -167,6 +175,7 @@ class Storage(object):
         self._write_config_to_file()
         return bucket_obj
 
+    @synchronized
     def create_file(self, bucket_name, file_name, content, file_obj, file_id=None):
         """Create a text file given a string content
 
@@ -197,6 +206,7 @@ class Storage(object):
                 self._delete_file(RESUMABLE_DIR, self.safe_id(file_id))
             self._write_config_to_file()
 
+    @synchronized
     def create_resumable_upload(self, bucket_name, file_name, file_obj):
         """Initiate the necessary data to support partial upload.
 
@@ -227,6 +237,7 @@ class Storage(object):
         self._write_config_to_file()
         return file_id
 
+    @synchronized
     def create_xml_multipart_upload(self, bucket_name, file_name, file_obj):
         """Initiate the necessary data to support multipart XML upload
         (which means the file is uploaded in parts and then assembled by the server,
@@ -252,6 +263,7 @@ class Storage(object):
         self._write_config_to_file()
         return upload_id
 
+    @synchronized
     def add_to_multipart_upload(self, upload_id, part_number, content):
         """Add a part to a multipart upload
 
@@ -278,6 +290,7 @@ class Storage(object):
         with file_dir.open(part_file_id, mode="wb") as file:
             file.write(content)
 
+    @synchronized
     def complete_multipart_upload(self, upload_id):
         """Completes a multipart upload and creates the file
 
@@ -335,6 +348,7 @@ class Storage(object):
             self.objects[bucket_name] = bucket_objects
             self._write_config_to_file()
 
+    @synchronized
     def add_to_resumable_upload(self, file_id, content, total_size):
         """Add data to partial resumable download.
 
@@ -368,6 +382,7 @@ class Storage(object):
             return file_content[:total_size]
         return None
 
+    @synchronized
     def get_file_obj(self, bucket_name, file_name):
         """Gets the meta information for a file within a bucket
 
@@ -387,6 +402,7 @@ class Storage(object):
         except KeyError:
             raise NotFound
 
+    @synchronized
     def get_resumable_file_obj(self, file_id):
         """Gets the meta information for a file within resumables
 
@@ -405,6 +421,7 @@ class Storage(object):
         except KeyError:
             raise NotFound
 
+    @synchronized
     def get_file(self, bucket_name, file_name, show_error=True):
         """Get the raw data of a file within a bucket
 
@@ -429,6 +446,7 @@ class Storage(object):
                 logger.error(e)
             raise NotFound
 
+    @synchronized
     def delete_resumable_file_obj(self, file_id):
         """Deletes the meta information for a file within resumables
 
@@ -444,6 +462,7 @@ class Storage(object):
         except KeyError:
             raise NotFound
 
+    @synchronized
     def delete_bucket(self, bucket_name):
         """Delete a bucket's meta and file
 
@@ -479,6 +498,7 @@ class Storage(object):
         self._delete_dir(bucket_name)
         self._write_config_to_file()
 
+    @synchronized
     def delete_file(self, bucket_name, file_name):
         try:
             self.objects[bucket_name][file_name]
@@ -494,6 +514,7 @@ class Storage(object):
         self._delete_file(bucket_name, file_name)
         self._write_config_to_file()
 
+    @synchronized
     def _delete_file(self, bucket_name, file_name):
         try:
             with self._fs.opendir(bucket_name) as bucket_dir:
@@ -501,6 +522,7 @@ class Storage(object):
         except ResourceNotFound:
             logger.info("No file to remove '{}/{}'".format(bucket_name, file_name))
 
+    @synchronized
     def _delete_dir(self, path, force=True):
         try:
             remover = self._fs.removetree if force else self._fs.removedir
@@ -508,6 +530,7 @@ class Storage(object):
         except ResourceNotFound:
             logger.info("No folder to remove '{}'".format(path))
 
+    @synchronized
     def wipe(self, keep_buckets=False):
         existing_buckets = self.buckets
         self.buckets = {}
@@ -528,6 +551,7 @@ class Storage(object):
             for bucket_name, bucket_obj in existing_buckets.items():
                 self.create_bucket(bucket_name, bucket_obj)
 
+    @synchronized
     def patch_object(self, bucket_name, file_name, file_obj):
         """Patch object
 
